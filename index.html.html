@@ -45,7 +45,7 @@
 
           <div class="mb-6">
             <label for="betAmount" class="block text-sm font-medium text-gray-300 mb-2">Kwota zakładu</label>
-            <input type="number" id="betAmount" min="1" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"/>
+            <input type="number" id="betAmount" min="1" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none text-white"/>
           </div>
 
           <!-- Tabs -->
@@ -54,9 +54,10 @@
             <button onclick="setTab('color')" id="tabColor" class="py-2 px-4 font-medium text-gray-400 hover:text-gray-200">Zakład na kolor</button>
           </div>
 
-          <!-- Tab Content -->
+          <!-- Tab Liczby -->
           <div id="tabContentNumbers" class="grid grid-cols-6 gap-2 mb-6"></div>
 
+          <!-- Tab Kolory -->
           <div id="tabContentColors" class="hidden flex justify-center gap-6 mb-6">
             <button onclick="selectColor('red')" id="btnRed" class="px-6 py-4 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700">Czerwony</button>
             <button onclick="selectColor('black')" id="btnBlack" class="px-6 py-4 rounded-lg bg-gray-600 text-white font-semibold hover:bg-gray-700">Czarny</button>
@@ -94,7 +95,7 @@
       <div id="transactionStatus" class="mb-4 p-3 hidden rounded bg-green-800 text-green-100"></div>
       <div class="flex space-x-3">
         <button onclick="closeModal('deposit')" class="flex-1 py-2 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">Anuluj</button>
-        <button onclick="handleDeposit()" class="flex-1 py-2 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg font-medium transition-colors">Potwierdź</button>
+        <button onclick="handleDeposit()" id="confirmDepositBtn" class="flex-1 py-2 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg font-medium transition-colors">Potwierdź</button>
       </div>
     </div>
   </div>
@@ -109,7 +110,6 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="bg-gray-800 bg-opacity-70 backdrop-blur-md py-6 mt-12">
     <div class="container mx-auto px-4 text-center text-gray-400 text-sm">
       <p>&copy; 2025 Virtual Casino. Wszelkie prawa zastrzeżone.</p>
@@ -152,30 +152,125 @@
       activeTab = tab;
       document.getElementById("tabNumber").className = "py-2 px-4 font-medium text-gray-400 hover:text-gray-200";
       document.getElementById("tabColor").className = "py-2 px-4 font-medium text-gray-400 hover:text-gray-200";
+
       if (tab === "number") {
         document.getElementById("tabNumber").className = "py-2 px-4 font-medium border-b-2 border-blue-500 text-blue-400";
         document.getElementById("tabContentNumbers").classList.remove("hidden");
         document.getElementById("tabContentColors").classList.add("hidden");
       } else {
         document.getElementById("tabColor").className = "py-2 px-4 font-medium border-b-2 border-blue-500 text-blue-400";
-        document.getElementById("tabContentNumbers").classList.add("hidden");
         document.getElementById("tabContentColors").classList.remove("hidden");
+        document.getElementById("tabContentNumbers").classList.add("hidden");
       }
     }
 
     function selectNumber(num) {
       selectedNumber = num;
+      document.querySelectorAll("#tabContentNumbers button").forEach(btn => btn.classList.remove("ring-2", "ring-offset-2", "ring-blue-400"));
+      event.target.classList.add("ring-2", "ring-offset-2", "ring-blue-400");
     }
 
     function selectColor(color) {
       selectedColor = color;
       document.getElementById("btnRed").className = "px-6 py-4 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700";
       document.getElementById("btnBlack").className = "px-6 py-4 rounded-lg bg-gray-600 text-white font-semibold hover:bg-gray-700";
+
       if (color === "red") {
         document.getElementById("btnRed").classList.add("ring-2", "ring-offset-2", "ring-red-400", "scale-105");
       } else {
         document.getElementById("btnBlack").classList.add("ring-2", "ring-offset-2", "ring-gray-400", "scale-105");
       }
+    }
+
+    function placeBet() {
+      const betAmount = parseInt(document.getElementById("betAmount").value);
+      const messageBox = document.getElementById("messageBox");
+
+      if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
+        messageBox.textContent = "Podaj prawidłową stawkę.";
+        messageBox.className = "mt-6 p-4 rounded bg-red-800 block text-white";
+        return;
+      }
+
+      if ((activeTab === "number" && selectedNumber === null) || (activeTab === "color" && selectedColor === null)) {
+        messageBox.textContent = "Wybierz numer lub kolor!";
+        messageBox.className = "mt-6 p-4 rounded bg-red-800 block text-white";
+        return;
+      }
+
+      if (betAmount > balance) {
+        messageBox.textContent = "Brak środków!";
+        messageBox.className = "mt-6 p-4 rounded bg-red-800 block text-white";
+        return;
+      }
+
+      balance -= betAmount;
+      updateUI();
+      saveState();
+
+      messageBox.classList.add("hidden");
+      document.getElementById("placeBetBtn").disabled = true;
+      document.getElementById("placeBetBtn").textContent = "Krecenie...";
+      document.getElementById("placeBetBtn").classList.add("bg-gray-600", "cursor-not-allowed");
+
+      setTimeout(() => {
+        const winningNumber = Math.floor(Math.random() * 37);
+
+        const getColor = (num) => {
+          if (num === 0) return "green";
+          if ([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(num)) return "red";
+          return "black";
+        };
+
+        const winningColor = getColor(winningNumber);
+
+        let winMessage = "", winAmount = 0;
+
+        if (activeTab === "number") {
+          if (winningNumber === selectedNumber) {
+            winAmount = betAmount * (winningNumber === 0 ? 36 : 36);
+            winMessage = `🎉 Gratulacje! Wygrałeś ${winAmount} PLN. Wylosowany numer: ${winningNumber}`;
+          } else {
+            winMessage = `😢 Przegrałeś. Wylosowany numer: ${winningNumber}`;
+          }
+        } else if (activeTab === "color") {
+          if (winningColor === selectedColor) {
+            winAmount = betAmount * 2;
+            winMessage = `🎉 Gratulacje! Wygrałeś ${winAmount} PLN. Wylosowany numer: ${winningNumber} (${winningColor})`;
+          } else {
+            winMessage = `😢 Przegrałeś. Wylosowany numer: ${winningNumber} (${winningColor})`;
+          }
+        }
+
+        balance += winAmount;
+        updateUI();
+        saveState();
+
+        history.push({
+          time: new Date().toLocaleString(),
+          game: "ruletka",
+          bet: betAmount,
+          result: winMessage.includes("Gratulacje") ? "Win" : "Loss",
+          profit: winMessage.includes("Gratulacje") ? winAmount - betAmount : -betAmount
+        });
+        saveHistory();
+        loadHistory();
+
+        messageBox.textContent = winMessage;
+        messageBox.className = winMessage.includes("Gratulacje")
+          ? "mt-6 p-4 rounded bg-green-800 block text-white"
+          : "mt-6 p-4 rounded bg-red-800 block text-white";
+
+        // Resetowanie po grze
+        selectedNumber = null;
+        selectedColor = null;
+        document.getElementById("btnRed")?.classList.remove("ring-2", "ring-offset-2", "ring-red-400", "scale-105");
+        document.getElementById("btnBlack")?.classList.remove("ring-2", "ring-offset-2", "ring-gray-400", "scale-105");
+        document.getElementById("placeBetBtn").disabled = false;
+        document.getElementById("placeBetBtn").textContent = "Postaw zakład";
+        document.getElementById("placeBetBtn").classList.remove("bg-gray-600", "cursor-not-allowed");
+
+      }, 2000);
     }
 
     function openModal(type) {
@@ -203,6 +298,7 @@
       balance += amount;
       updateUI();
       saveState();
+
       showStatus("Sukces! Środki zostały doładowane.", "success");
 
       setTimeout(() => {
@@ -224,93 +320,14 @@
       alert(`Wypłacono ${amount} PLN`);
     }
 
-    function placeBet() {
-      const betAmount = parseInt(document.getElementById("betAmount").value, 10);
-      const messageBox = document.getElementById("messageBox");
-
-      if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-        messageBox.textContent = "Podaj prawidłową stawkę.";
-        messageBox.className = "mt-6 p-4 rounded bg-gray-700 bg-opacity-80 backdrop-blur-sm block text-white";
-        return;
-      }
-
-      if ((activeTab === "number" && selectedNumber === null) || (activeTab === "color" && selectedColor === null)) {
-        messageBox.textContent = "Wybierz numer lub kolor!";
-        messageBox.className = "mt-6 p-4 rounded bg-gray-700 bg-opacity-80 backdrop-blur-sm block text-white";
-        return;
-      }
-
-      if (betAmount > balance) {
-        messageBox.textContent = "Brak środków!";
-        messageBox.className = "mt-6 p-4 rounded bg-gray-700 bg-opacity-80 backdrop-blur-sm block text-white";
-        return;
-      }
-
-      balance -= betAmount;
-      updateUI();
-      saveState();
-
-      messageBox.classList.add("hidden");
-      document.getElementById("placeBetBtn").disabled = true;
-      document.getElementById("placeBetBtn").textContent = "Krecę...";
-      document.getElementById("placeBetBtn").classList.add("bg-gray-600", "cursor-not-allowed");
-
-      setTimeout(() => {
-        const winningNumber = Math.floor(Math.random() * 37);
-        const getColor = n => n === 0 ? "green" : [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(n) ? "red" : "black";
-        const winningColor = getColor(winningNumber);
-
-        let winMessage = "", winAmount = 0;
-
-        if (activeTab === "number") {
-          if (winningNumber === selectedNumber) {
-            winAmount = betAmount * (winningNumber === 0 ? 36 : 36);
-            winMessage = `Gratulacje! Wygrałeś ${winAmount} PLN. Wylosowany numer: ${winningNumber}`;
-          } else {
-            winMessage = `Przegrałeś. Wylosowany numer: ${winningNumber}`;
-          }
-        } else {
-          if (winningColor === selectedColor) {
-            winAmount = betAmount * 2;
-            winMessage = `Gratulacje! Wygrałeś ${winAmount} PLN. Wylosowany numer: ${winningNumber} (${winningColor})`;
-          } else {
-            winMessage = `Przegrałeś. Wylosowany numer: ${winningNumber} (${winningColor})`;
-          }
-        }
-
-        balance += winAmount;
-        updateUI();
-        saveState();
-
-        history.push({
-          time: new Date().toLocaleString(),
-          bet: betAmount,
-          result: winMessage.includes("Gratulacje") ? "Win" : "Loss",
-          profit: winMessage.includes("Gratulacje") ? winAmount - betAmount : -betAmount
-        });
-        saveHistory();
-        loadHistory();
-
-        messageBox.textContent = winMessage;
-        messageBox.className = "mt-6 p-4 rounded bg-gray-700 bg-opacity-80 backdrop-blur-sm block text-white";
-        document.getElementById("placeBetBtn").disabled = false;
-        document.getElementById("placeBetBtn").textContent = "Postaw zakład";
-        document.getElementById("placeBetBtn").classList.remove("bg-gray-600", "cursor-not-allowed");
-      }, 2000);
-    }
-
     function showStatus(msg, type) {
       const statusDiv = document.getElementById("transactionStatus");
       statusDiv.textContent = msg;
       statusDiv.className = `mb-4 p-3 rounded ${type === "success" ? "bg-green-800 text-green-100" : "bg-red-800 text-red-100"} block`;
-    }
 
-    function saveState() {
-      localStorage.setItem(`casino_${username}`, JSON.stringify({ balance, history }));
-    }
-
-    function saveHistory() {
-      localStorage.setItem(`casino_history_${username}`, JSON.stringify(history));
+      setTimeout(() => {
+        statusDiv.classList.add("hidden");
+      }, 3000);
     }
 
     function loadHistory() {
@@ -324,60 +341,69 @@
       });
     }
 
-    window.onload = () => {
-      const depositOptionsContainer = document.getElementById("depositOptions");
-      const withdrawOptionsContainer = document.getElementById("withdrawOptions");
-      const numbers = Array.from({ length: 37 }, (_, i) => i);
+    function saveState() {
+      localStorage.setItem(`casino_${username}`, JSON.stringify({ balance, history }));
+    }
 
-      // Opcje doładowania
+    function saveHistory() {
+      localStorage.setItem(`casino_history_${username}`, JSON.stringify(history));
+    }
+
+    function initGameUI() {
+      const numbers = Array.from({ length: 37 }, (_, i) => i);
+      const tabNumbers = document.getElementById("tabContentNumbers");
+
+      numbers.forEach(num => {
+        const btn = document.createElement("button");
+        btn.textContent = num;
+        btn.onclick = () => selectNumber(num);
+        const color = num === 0 ? "green" : [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(num) ? "red" : "black";
+
+        btn.className = `py-2 px-3 rounded-md ${
+          color === "red" ? "bg-red-600 text-white" :
+          color === "green" ? "bg-green-600 text-white" : "bg-gray-600 text-white"
+        }`;
+
+        tabNumbers.appendChild(btn);
+      });
+    }
+
+    window.onload = () => {
+      const depositContainer = document.getElementById("depositOptions");
+      const withdrawContainer = document.getElementById("withdrawOptions");
+
       [10, 20, 50, 100, 500].forEach(amount => {
         const btn = document.createElement("button");
         btn.textContent = `${amount} PLN`;
         btn.onclick = () => document.getElementById("depositAmount").value = amount;
         btn.className = "px-4 py-2 m-1 rounded-full text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-300";
-        depositOptionsContainer.appendChild(btn);
+        depositContainer.appendChild(btn);
       });
 
-      // Opcje wypłaty
       [10, 20, 50, 100].forEach(amount => {
         const btn = document.createElement("button");
         btn.textContent = `${amount} PLN`;
         btn.onclick = () => handleWithdraw(amount);
         btn.className = "py-3 px-4 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-medium transition-colors";
-        withdrawOptionsContainer.appendChild(btn);
+        withdrawContainer.appendChild(btn);
       });
 
-      // Liczby na ruletce
-      numbers.forEach(num => {
-        const btn = document.createElement("button");
-        btn.textContent = num;
-        btn.onclick = () => selectNumber(num);
-        const color = num === 0 ? "green" : ["red", "black"][Math.floor(Math.random() * 2)];
-        btn.className = `py-2 px-3 rounded-md ${
-          color === "red" ? "bg-red-600 text-white" :
-          color === "green" ? "bg-green-600 text-white" : "bg-gray-600 text-white"
-        }`;
-        document.getElementById("tabContentNumbers").appendChild(btn);
-      });
-
-      // Załaduj historię
-      const savedHistory = JSON.parse(localStorage.getItem(`casino_history_${username}`)) || [];
-      savedHistory.forEach(entry => history.push(entry));
-      loadHistory();
+      initGameUI();
+      updateUI();
     };
 
-    // Inicjalizacja UI
     function initGameUI() {
-      document.getElementById("tabNumber").onclick = () => setTab("number");
-      document.getElementById("tabColor").onclick = () => setTab("color");
-      document.getElementById("placeBetBtn").onclick = placeBet;
+      setTab("number");
     }
 
-    // Automatyczne ustawienie zakładek po wczytaniu
-    window.addEventListener("load", () => {
-      setTab("number");
-      updateUI();
-    });
+    function updateUI() {
+      document.getElementById("balance").textContent = `${balance} PLN`;
+      document.getElementById("gameBalance").textContent = `${balance} PLN`;
+    }
+
+    function saveState() {
+      localStorage.setItem(`casino_${username}`, JSON.stringify({ balance, history }));
+    }
   </script>
 </body>
 </html>
